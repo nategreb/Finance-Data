@@ -1,5 +1,4 @@
 import requests
-import validators
 
 from bs4 import BeautifulSoup
 
@@ -11,6 +10,8 @@ def extract_source(url):
     try:
         source = requests.get(url, headers=headers)
     except requests.exceptions.MissingSchema:
+        return None
+    except requests.exceptions.InvalidURL:
         return None
     if source.status_code != requests.codes.ok:
         return None
@@ -29,8 +30,15 @@ def get_wsj():
     for article in articles:
         links = article.findAll('a')
         for link in links:
-            if validators.url(link['href']):
-                data[link.string] = link['href']
+            subpage = extract_source(link['href'])
+            if subpage is not None:
+                time = subpage.find('time', class_="timestamp article__timestamp flexbox__flex--1")
+                data[link.string] = {}
+                if time is not None:
+                    time = time.string.replace('Updated', ' ').strip()
+                    data[link.string][time] = link['href']
+                else:
+                    data[link.string]['N/A'] = link['href']
     return data
 
 
@@ -47,15 +55,15 @@ def marketwatch():
     for article in articles:
         links = article.findAll('a')
         for link in links:
-            title = link.string
-            if validators.url(link['href']):
-                subpage = BeautifulSoup(extract_source(link['href']), 'html.parser')
+            subpage = extract_source(link['href'])
+            if subpage is not None:
                 time = subpage.find('time', class_="timestamp timestamp--pub")
-                data[title] = {}
+                data[link.string] = {}
                 if time is not None:
                     time = time.string.replace('\n', ' ').replace('Published:', ' ').replace('First', ' ').strip()
-                    data[title][time] = link['href']
+                    data[link.string][time] = link['href']
                 else:
-                    data[title]['N/A'] = link['href']
+                    data[link.string]['N/A'] = link['href']
     return data
 
+#create sort for times. create a date object for tiems abvoes
