@@ -1,5 +1,6 @@
 import requests
-
+from send_email import email_message
+from datetime import datetime
 from bs4 import BeautifulSoup
 
 
@@ -9,9 +10,7 @@ def extract_source(url):
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0'}
     try:
         source = requests.get(url, headers=headers)
-    except requests.exceptions.MissingSchema:
-        return None
-    except requests.exceptions.InvalidURL:
+    except (requests.exceptions.MissingSchema, requests.exceptions.InvalidURL):
         return None
     if source.status_code != requests.codes.ok:
         return None
@@ -20,7 +19,7 @@ def extract_source(url):
 
 # gets latest news of the Wall Street Journal as dictionary
 # the keys are the article name. the values are the urls.
-# get_wsj(): {String: String}
+# get_wsj(): {String: {String: String}}
 def get_wsj():
     soup = extract_source("https://www.wsj.com/news/markets?mod=nav_top_section")
     data = {}
@@ -36,6 +35,7 @@ def get_wsj():
                 data[link.string] = {}
                 if time is not None:
                     time = time.string.replace('Updated', ' ').strip()
+                    datetime.strptime(time, '%b %d %Y %I:%M%p')
                     data[link.string][time] = link['href']
                 else:
                     data[link.string]['N/A'] = link['href']
@@ -45,7 +45,7 @@ def get_wsj():
 # need to fix. very slow
 # gets latest news of MarketWatch as dictionary
 # the keys are the article name. the values are the urls.
-# get_wsj(): {String: String}
+# get_wsj(): {String: {String: String}}
 def marketwatch():
     soup = extract_source("https://www.marketwatch.com/latest-news?mod=top_nav")
     data = {}
@@ -67,3 +67,12 @@ def marketwatch():
     return data
 
 #create sort for times. create a date object for tiems abvoes
+
+def send_links():
+    articles = marketwatch()
+    message = ''
+    for article in articles.values():
+        message += list(article.values())[0] + '\n'
+    email_message(message)
+
+
